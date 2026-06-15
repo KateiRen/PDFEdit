@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# uv cache
+.uv/
+
+# pre-commit cache
+.pre-commit-framework/
+.pre-commit-cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific: input and output directories
+input-pdf/*
+!input-pdf/.gitkeep
+input-gfx/*
+!input-gfx/.gitkeep
+output-pdf/*
+!output-pdf/.gitkeep
