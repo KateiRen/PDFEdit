@@ -1,4 +1,13 @@
 repos:
+  # Block binary docs/images from being committed
+  - repo: local
+    hooks:
+      - id: block-media-files
+        name: block media/document files
+        entry: python scripts/block_media_files.py
+        language: system
+        files: \.(pdf|jpg|jpeg|png)$
+
   # Pre-commit maintained hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
