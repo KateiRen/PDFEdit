@@ -4,7 +4,7 @@ Simple Python CLI to place a JPG/PNG graphic onto an existing PDF.
 
 ## Common scenario
 
-You've filled out a PDF form digitally, but now you need to add a handwritten signature. Normally this means: print -> sign by hand -> scan -> insert into PDF.
+You've filled out a PDF form digitally, but now you need to add a handwritten signature. Normally this means: print -> sign by hand -> scan -> send/upload the signed file.
 
 PDFEdit eliminates the print-sign-scan cycle. Sign on a tablet or phone, save as PNG, and use this tool to place it directly onto your PDF form while keeping everything digital.
 
