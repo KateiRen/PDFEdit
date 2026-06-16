@@ -65,7 +65,7 @@ def _ask_int(prompt: str, *, min_val: int = 1) -> int:
 # ---------------------------------------------------------------------------
 
 
-def resolve_pdffile(value: str | None) -> Path:
+def resolve_pdffile(value: str | None, *, non_interactive: bool = False) -> Path:
     if value:
         p = Path(value)
         if not p.is_absolute():
@@ -74,11 +74,16 @@ def resolve_pdffile(value: str | None) -> Path:
             print(f"Error: PDF file not found: {p}", file=sys.stderr)
             sys.exit(1)
         return p
+    if non_interactive:
+        print(
+            "Error: --pdffile is required in --non-interactive mode.", file=sys.stderr
+        )
+        sys.exit(1)
     pdfs = sorted(INPUT_PDF_DIR.glob("*.pdf"))
     return _pick_from_list(pdfs, "PDF")
 
 
-def resolve_pdffile2(value: str | None) -> Path:
+def resolve_pdffile2(value: str | None, *, non_interactive: bool = False) -> Path:
     if value:
         p = Path(value)
         if not p.is_absolute():
@@ -87,11 +92,17 @@ def resolve_pdffile2(value: str | None) -> Path:
             print(f"Error: Secondary PDF file not found: {p}", file=sys.stderr)
             sys.exit(1)
         return p
+    if non_interactive:
+        print(
+            "Error: --pdffile2 is required in --non-interactive mode for this operation.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     pdfs = sorted(INPUT_PDF_DIR.glob("*.pdf"))
     return _pick_from_list(pdfs, "secondary PDF")
 
 
-def resolve_gfxfile(value: str | None) -> Path:
+def resolve_gfxfile(value: str | None, *, non_interactive: bool = False) -> Path:
     if value:
         p = Path(value)
         if not p.is_absolute():
@@ -100,13 +111,20 @@ def resolve_gfxfile(value: str | None) -> Path:
             print(f"Error: Graphics file not found: {p}", file=sys.stderr)
             sys.exit(1)
         return p
+    if non_interactive:
+        print(
+            "Error: --gfxfile is required in --non-interactive mode.", file=sys.stderr
+        )
+        sys.exit(1)
     gfx = sorted(
         f for ext in ("*.jpg", "*.jpeg", "*.png") for f in INPUT_GFX_DIR.glob(ext)
     )
     return _pick_from_list(gfx, "graphics (jpg/png)")
 
 
-def resolve_page(value: int | None, max_page: int) -> int:
+def resolve_page(
+    value: int | None, max_page: int, *, non_interactive: bool = False
+) -> int:
     if value is not None:
         if not (1 <= value <= max_page):
             print(
@@ -114,6 +132,12 @@ def resolve_page(value: int | None, max_page: int) -> int:
             )
             sys.exit(1)
         return value
+    if non_interactive:
+        print(
+            "Error: required --page/--sourcepage is missing in --non-interactive mode.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     return _ask_int(f"Page number [1-{max_page}]: ", min_val=1)
 
 
@@ -203,6 +227,7 @@ def resolve_password(
     *,
     prompt: str = "Password: ",
     allow_blank: bool = False,
+    non_interactive: bool = False,
 ) -> str:
     """Resolve password from arg/.env, otherwise ask via hidden prompt."""
     if value:
@@ -211,6 +236,13 @@ def resolve_password(
     default_pw = _read_env_value("PDFEDIT_DEFAULT_PASSWORD")
     if default_pw:
         return default_pw
+
+    if non_interactive:
+        print(
+            "Error: Password required in --non-interactive mode. Use --password or set PDFEDIT_DEFAULT_PASSWORD in .env.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     entered = getpass.getpass(prompt).strip()
     if entered or allow_blank:
@@ -364,7 +396,7 @@ def _not_implemented(operation: str) -> None:
 def run_stamp(args: argparse.Namespace) -> None:
     """Execute the existing stamp operation."""
     # Track whether any value was obtained interactively
-    interactive = not all(
+    interactive = (not args.non_interactive) and not all(
         [
             args.pdffile,
             args.gfxfile,
@@ -376,8 +408,8 @@ def run_stamp(args: argparse.Namespace) -> None:
     )
 
     # Resolve files first so we know the page count before asking
-    pdf_path = resolve_pdffile(args.pdffile)
-    gfx_path = resolve_gfxfile(args.gfxfile)
+    pdf_path = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
+    gfx_path = resolve_gfxfile(args.gfxfile, non_interactive=args.non_interactive)
 
     # We need the page count to validate / prompt for page number
     try:
@@ -391,7 +423,18 @@ def run_stamp(args: argparse.Namespace) -> None:
     with fitz.open(str(pdf_path)) as _doc:
         page_count = len(_doc)
 
-    page_number = resolve_page(args.page, page_count)
+    page_number = resolve_page(
+        args.page,
+        page_count,
+        non_interactive=args.non_interactive,
+    )
+
+    if args.non_interactive and (args.posX is None or args.posY is None):
+        print(
+            "Error: --posX and --posY are required in --non-interactive mode.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     pos_x = (
         args.posX
@@ -409,7 +452,7 @@ def run_stamp(args: argparse.Namespace) -> None:
 
     width = args.width
     height = args.height
-    if width is None and height is None:
+    if (not args.non_interactive) and width is None and height is None:
         print(
             "\nEnter width and/or height in mm. Leave both blank to use the original image size."
         )
@@ -460,8 +503,8 @@ def run_merge(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf1 = resolve_pdffile(args.pdffile)
-    pdf2 = resolve_pdffile2(args.pdffile2)
+    pdf1 = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
+    pdf2 = resolve_pdffile2(args.pdffile2, non_interactive=args.non_interactive)
 
     doc1 = fitz.open(str(pdf1))
     doc2 = fitz.open(str(pdf2))
@@ -496,8 +539,8 @@ def run_append(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf1 = resolve_pdffile(args.pdffile)
-    pdf2 = resolve_pdffile2(args.pdffile2)
+    pdf1 = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
+    pdf2 = resolve_pdffile2(args.pdffile2, non_interactive=args.non_interactive)
 
     out = fitz.open(str(pdf1))
     src = fitz.open(str(pdf2))
@@ -519,7 +562,7 @@ def run_rotate(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf = resolve_pdffile(args.pdffile)
+    pdf = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
     doc = fitz.open(str(pdf))
 
     if args.pages:
@@ -547,7 +590,7 @@ def run_delete(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf = resolve_pdffile(args.pdffile)
+    pdf = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
     doc = fitz.open(str(pdf))
 
     if not args.pages:
@@ -582,14 +625,22 @@ def run_replace(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf1 = resolve_pdffile(args.pdffile)
-    pdf2 = resolve_pdffile2(args.pdffile2)
+    pdf1 = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
+    pdf2 = resolve_pdffile2(args.pdffile2, non_interactive=args.non_interactive)
 
     target_doc = fitz.open(str(pdf1))
     source_doc = fitz.open(str(pdf2))
 
-    target_page = resolve_page(args.page, len(target_doc))
-    source_page = resolve_page(args.sourcepage, len(source_doc))
+    target_page = resolve_page(
+        args.page,
+        len(target_doc),
+        non_interactive=args.non_interactive,
+    )
+    source_page = resolve_page(
+        args.sourcepage,
+        len(source_doc),
+        non_interactive=args.non_interactive,
+    )
 
     target_idx = target_page - 1
     source_idx = source_page - 1
@@ -623,7 +674,7 @@ def run_protect(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf = resolve_pdffile(args.pdffile)
+    pdf = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
     doc = fitz.open(str(pdf))
 
     out_path = resolve_output_path(args.outfile, pdf)
@@ -636,6 +687,7 @@ def run_protect(args: argparse.Namespace) -> None:
         owner_pw = resolve_password(
             args.ownerpassword or args.password,
             prompt="Owner password (hidden): ",
+            non_interactive=args.non_interactive,
         )
         perms = int(perm_print | perm_accessibility)
         doc.save(
@@ -646,16 +698,21 @@ def run_protect(args: argparse.Namespace) -> None:
             permissions=perms,
         )
     else:
-        user_pw = resolve_password(args.password, prompt="Open password (hidden): ")
-        owner_pw = (
-            args.ownerpassword
-            if args.ownerpassword
-            else resolve_password(
+        user_pw = resolve_password(
+            args.password,
+            prompt="Open password (hidden): ",
+            non_interactive=args.non_interactive,
+        )
+        if args.ownerpassword:
+            owner_pw = args.ownerpassword
+        elif args.non_interactive:
+            owner_pw = user_pw
+        else:
+            owner_pw = resolve_password(
                 None,
                 prompt="Owner password (hidden, Enter=use open): ",
                 allow_blank=True,
             )
-        )
         if not owner_pw:
             owner_pw = user_pw
         doc.save(
@@ -678,11 +735,15 @@ def run_unprotect(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    pdf = resolve_pdffile(args.pdffile)
+    pdf = resolve_pdffile(args.pdffile, non_interactive=args.non_interactive)
     doc = fitz.open(str(pdf))
 
     if doc.needs_pass:
-        password = resolve_password(args.password, prompt="PDF password (hidden): ")
+        password = resolve_password(
+            args.password,
+            prompt="PDF password (hidden): ",
+            non_interactive=args.non_interactive,
+        )
         if not doc.authenticate(password):
             print("Error: Invalid password for encrypted PDF.", file=sys.stderr)
             doc.close()
@@ -784,6 +845,11 @@ def main() -> None:
     parser.add_argument(
         "--ownerpassword",
         help="Owner password override for protect operation",
+    )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Disable all interactive prompts and fail on missing required inputs",
     )
 
     args = parser.parse_args()

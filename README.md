@@ -15,6 +15,7 @@ One step closer to a paperless office. 👍
 It supports:
 - interactive mode (ask for missing values)
 - command-line mode (fully scripted)
+- non-interactive mode (`--non-interactive`) for automation/MCP
 - proportional scaling when only width or height is provided
 - operation-based processing:
 	- `stamp`
@@ -149,6 +150,40 @@ uv run python main.py \
 	--insertmode darken
 ```
 
+### Non-interactive mode (automation-safe)
+
+Use `--non-interactive` to disable all prompts. Missing required inputs fail fast.
+
+```bash
+uv run python main.py \
+	--non-interactive \
+	--operation stamp \
+	--pdffile "document.pdf" \
+	--gfxfile "signature.png" \
+	--posX 140 \
+	--posY 245 \
+	--page 1
+```
+
+## MCP Server
+
+PDFEdit now includes a local MCP server that exposes each supported operation as a tool and calls `main.py` in `--non-interactive` mode.
+
+- Server entrypoint: `mcp_server.py`
+- Contract: `docs/mcp-contract.md`
+
+Run locally:
+
+```bash
+uv run python mcp_server.py
+```
+
+Smoke-test the MCP server end-to-end (starts local server, calls `stamp`, verifies output file):
+
+```bash
+uv run python scripts/mcp_smoke_test.py
+```
+
 ## Arguments
 
 - `--pdffile` PDF filename (or full path)
@@ -169,6 +204,7 @@ uv run python main.py \
 - `--protectmode` mode for `protect`: `permissions` (default) or `encrypt`
 - `--password` password for `protect`/`unprotect` (falls back to `.env`, then hidden prompt)
 - `--ownerpassword` optional owner password for `protect`
+- `--non-interactive` disable all prompts and fail on missing required inputs
 
 ## Operation Examples
 
