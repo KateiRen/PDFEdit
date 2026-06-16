@@ -1,6 +1,7 @@
 """PDFEdit CLI: stamp, merge, append, rotate, delete and replace pages in PDFs."""
 
 import argparse
+import getpass
 import os
 import sys
 from pathlib import Path
@@ -197,17 +198,25 @@ def _read_env_value(key: str) -> str | None:
     return None
 
 
-def resolve_password(value: str | None) -> str:
-    """Resolve password from arg or PDFEDIT_DEFAULT_PASSWORD in environment/.env."""
+def resolve_password(
+    value: str | None,
+    *,
+    prompt: str = "Password: ",
+    allow_blank: bool = False,
+) -> str:
+    """Resolve password from arg/.env, otherwise ask via hidden prompt."""
     if value:
         return value
+
     default_pw = _read_env_value("PDFEDIT_DEFAULT_PASSWORD")
     if default_pw:
         return default_pw
-    print(
-        "Error: No password provided. Use --password or set PDFEDIT_DEFAULT_PASSWORD in .env.",
-        file=sys.stderr,
-    )
+
+    entered = getpass.getpass(prompt).strip()
+    if entered or allow_blank:
+        return entered
+
+    print("Error: Password is required.", file=sys.stderr)
     sys.exit(1)
 
 
@@ -624,7 +633,10 @@ def run_protect(args: argparse.Namespace) -> None:
     perm_accessibility = int(getattr(fitz, "PDF_PERM_ACCESSIBILITY", 512))
 
     if args.protectmode == "permissions":
-        owner_pw = resolve_password(args.ownerpassword or args.password)
+        owner_pw = resolve_password(
+            args.ownerpassword or args.password,
+            prompt="Owner password (hidden): ",
+        )
         perms = int(perm_print | perm_accessibility)
         doc.save(
             str(out_path),
@@ -634,8 +646,18 @@ def run_protect(args: argparse.Namespace) -> None:
             permissions=perms,
         )
     else:
-        user_pw = resolve_password(args.password)
-        owner_pw = args.ownerpassword or user_pw
+        user_pw = resolve_password(args.password, prompt="Open password (hidden): ")
+        owner_pw = (
+            args.ownerpassword
+            if args.ownerpassword
+            else resolve_password(
+                None,
+                prompt="Owner password (hidden, Enter=use open): ",
+                allow_blank=True,
+            )
+        )
+        if not owner_pw:
+            owner_pw = user_pw
         doc.save(
             str(out_path),
             encryption=encrypt_aes_256,
@@ -660,7 +682,7 @@ def run_unprotect(args: argparse.Namespace) -> None:
     doc = fitz.open(str(pdf))
 
     if doc.needs_pass:
-        password = resolve_password(args.password)
+        password = resolve_password(args.password, prompt="PDF password (hidden): ")
         if not doc.authenticate(password):
             print("Error: Invalid password for encrypted PDF.", file=sys.stderr)
             doc.close()
@@ -757,7 +779,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--password",
-        help="Password for protect/encrypt or unprotect; defaults to PDFEDIT_DEFAULT_PASSWORD from .env",
+        help="Password for protect/encrypt or unprotect; defaults to PDFEDIT_DEFAULT_PASSWORD from .env, otherwise asked via hidden prompt",
     )
     parser.add_argument(
         "--ownerpassword",

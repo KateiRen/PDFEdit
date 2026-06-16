@@ -35,6 +35,10 @@ It supports:
 
 Places an image (signature/logo) on a specific page at a defined position and size.
 
+Important:
+- stamp adds a visual mark only
+- it does not create a cryptographic/digital PDF signature
+
 ### Merge
 
 Combines two scan runs into one two-sided document by interleaving pages from file 1 and file 2.
@@ -89,6 +93,10 @@ Password behavior:
 Unprotect:
 - removes PDF encryption/security from a file
 - if input is encrypted, provide `--password` (or `.env` default)
+
+Security disclaimer:
+- permissions mode helps against casual copying/extraction in compliant viewers
+- it does not guarantee that content cannot be extracted by determined users/tools
 
 
 ## Folder Structure
@@ -159,7 +167,7 @@ uv run python main.py \
 - `--backsideorder` page order mode for `merge`: `reverse` (default) or `normal`
 - `--outfile` output PDF filename/path (default: `output-pdf/<pdffile name>`)
 - `--protectmode` mode for `protect`: `permissions` (default) or `encrypt`
-- `--password` password for `protect`/`unprotect` (falls back to `.env`)
+- `--password` password for `protect`/`unprotect` (falls back to `.env`, then hidden prompt)
 - `--ownerpassword` optional owner password for `protect`
 
 ## Operation Examples
