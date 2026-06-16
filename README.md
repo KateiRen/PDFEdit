@@ -167,18 +167,61 @@ uv run python main.py \
 
 ## MCP Server
 
-PDFEdit now includes a local MCP server that exposes each supported operation as a tool and calls `main.py` in `--non-interactive` mode.
+PDFEdit includes a local MCP server that exposes each supported operation as a tool and executes `main.py` with `--non-interactive`.
 
+### Transport and runtime
+
+- Transport: stdio (local process)
 - Server entrypoint: `mcp_server.py`
-- Contract: `docs/mcp-contract.md`
+- Tool contract: `docs/mcp-contract.md`
 
-Run locally:
+Start the server directly:
 
 ```bash
 uv run python mcp_server.py
 ```
 
-Smoke-test the MCP server end-to-end (starts local server, calls `stamp`, verifies output file):
+### Client configuration model
+
+For MCP clients that support stdio servers, configure command/args/cwd similar to:
+
+```json
+{
+	"name": "pdfedit",
+	"command": "uv",
+	"args": ["run", "python", "mcp_server.py"],
+	"cwd": "<absolute-path-to-project>"
+}
+```
+
+### File input and output behavior
+
+- Tool inputs are file path strings (`pdffile`, `pdffile2`, `gfxfile`).
+- Relative file names are resolved by the CLI as documented (for example `input-pdf/`, `input-gfx/`).
+- Each tool accepts optional `outfile`.
+- If `outfile` is omitted, the MCP server generates a unique PDF filename in `output-pdf/`.
+- Tool responses include `output_file` so clients can open/download the produced file.
+
+### Response shape
+
+Each tool returns a structured payload containing:
+
+- `ok`
+- `operation`
+- `exit_code`
+- `output_file`
+- `stdout`
+- `stderr`
+
+### Password/secrets in MCP mode
+
+- MCP calls are non-interactive by design.
+- For `protect`/`unprotect`, provide `password` explicitly, or set `PDFEDIT_DEFAULT_PASSWORD` in `.env`.
+- Hidden terminal prompts are only used in direct CLI runs without `--non-interactive`.
+
+### Quick validation
+
+Run the bundled smoke test (starts local server, calls `stamp`, verifies `output_file` exists):
 
 ```bash
 uv run python scripts/mcp_smoke_test.py
