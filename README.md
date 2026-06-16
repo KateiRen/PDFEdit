@@ -16,9 +16,80 @@ It supports:
 - interactive mode (ask for missing values)
 - command-line mode (fully scripted)
 - proportional scaling when only width or height is provided
-- two insert modes:
+- operation-based processing:
+	- `stamp`
+	- `merge`
+	- `append`
+	- `rotate`
+	- `delete`
+	- `replace` / `insert` (alias)
+	- `protect` / `unprotect`
+- two insert modes for `stamp`:
 	- `normal`: direct overlay
 	- `darken`: only darker graphic pixels affect the PDF
+
+
+## Supported Operations
+
+### Stamp
+
+Places an image (signature/logo) on a specific page at a defined position and size.
+
+### Merge
+
+Combines two scan runs into one two-sided document by interleaving pages from file 1 and file 2.
+
+Typical use case: front sides in one PDF and back sides in another PDF.
+
+Back-side order is configurable via `--backsideorder`:
+- `reverse` (default): uses last page to first page from file 2
+- `normal`: uses first page to last page from file 2
+
+### Append
+
+Adds all pages from file 2 to the end of file 1.
+
+### Rotate
+
+Rotates pages by 90 degrees clockwise (`cw`) or counter-clockwise (`ccw`).
+
+You can rotate:
+- all pages (omit `--pages`)
+- selected pages/ranges using `--pages`
+
+Supported page expression format:
+`1, 2, 3, 5-10, 12-15, 20, 45`
+
+### Delete
+
+Removes selected pages from a PDF using the same `--pages` expression format as rotate.
+
+Supported page expression format:
+`1, 2, 3, 5-10, 12-15, 20, 45`
+
+### Replace / Insert
+
+Replaces one page in file 1 with one page from file 2.
+
+`insert` is an alias of `replace` in the CLI.
+
+### Protect / Unprotect
+
+Protect and unprotect PDF security settings.
+
+Protect modes:
+- `permissions`: opens without user password, but disables copy/extract in compliant viewers
+- `encrypt`: requires a password to open the PDF
+
+Password behavior:
+- default password is read from `.env` key `PDFEDIT_DEFAULT_PASSWORD`
+- you can override at runtime with `--password`
+- optional separate owner password via `--ownerpassword`
+
+Unprotect:
+- removes PDF encryption/security from a file
+- if input is encrypted, provide `--password` (or `.env` default)
+
 
 ## Folder Structure
 
@@ -60,6 +131,7 @@ After a successful interactive run, the tool prints an equivalent full command.
 
 ```bash
 uv run python main.py \
+	--operation stamp \
 	--pdffile "document.pdf" \
 	--gfxfile "signature.png" \
 	--posX 140 \
@@ -72,6 +144,8 @@ uv run python main.py \
 ## Arguments
 
 - `--pdffile` PDF filename (or full path)
+- `--operation` one of `stamp`, `merge`, `append`, `rotate`, `delete`, `replace`, `insert`, `protect`, `unprotect` (default: `stamp`)
+- `--pdffile2` secondary PDF for `merge`, `append`, `replace`/`insert`
 - `--gfxfile` image filename (or full path)
 - `--posX` X position in mm
 - `--posY` Y position in mm
@@ -79,6 +153,116 @@ uv run python main.py \
 - `--height` height in mm (optional)
 - `--page` page number, 1-based
 - `--insertmode` one of `normal` or `darken` (default: `normal`)
+- `--pages` page expression for `rotate` and `delete` (example: `1,2,5-10`)
+- `--direction` `cw` or `ccw` for `rotate` (default: `cw`)
+- `--sourcepage` page in `--pdffile2` used by `replace`/`insert`
+- `--backsideorder` page order mode for `merge`: `reverse` (default) or `normal`
+- `--outfile` output PDF filename/path (default: `output-pdf/<pdffile name>`)
+- `--protectmode` mode for `protect`: `permissions` (default) or `encrypt`
+- `--password` password for `protect`/`unprotect` (falls back to `.env`)
+- `--ownerpassword` optional owner password for `protect`
+
+## Operation Examples
+
+### Stamp (signature/logo)
+
+```bash
+uv run python main.py \
+	--operation stamp \
+	--pdffile "form.pdf" \
+	--gfxfile "signature.png" \
+	--posX 140 \
+	--posY 245 \
+	--width 60 \
+	--page 1 \
+	--insertmode darken \
+	--outfile "form-signed.pdf"
+```
+
+### Merge (duplex scan merge)
+
+```bash
+uv run python main.py \
+	--operation merge \
+	--pdffile "scan-front.pdf" \
+	--pdffile2 "scan-back.pdf" \
+	--backsideorder reverse \
+	--outfile "scan-merged.pdf"
+```
+
+### Append
+
+```bash
+uv run python main.py \
+	--operation append \
+	--pdffile "contract.pdf" \
+	--pdffile2 "annex.pdf" \
+	--outfile "contract-with-annex.pdf"
+```
+
+### Rotate (selected pages/ranges)
+
+```bash
+uv run python main.py \
+	--operation rotate \
+	--pdffile "scan.pdf" \
+	--direction cw \
+	--pages "1, 2, 3, 5-10, 12-15, 20, 45" \
+	--outfile "scan-rotated.pdf"
+```
+
+### Delete (selected pages/ranges)
+
+```bash
+uv run python main.py \
+	--operation delete \
+	--pdffile "report.pdf" \
+	--pages "2, 4, 7-9" \
+	--outfile "report-clean.pdf"
+```
+
+### Replace / Insert (alias)
+
+```bash
+uv run python main.py \
+	--operation replace \
+	--pdffile "doc-main.pdf" \
+	--pdffile2 "doc-patch.pdf" \
+	--page 5 \
+	--sourcepage 1 \
+	--outfile "doc-updated.pdf"
+```
+
+### Protect (permissions mode, no open password)
+
+```bash
+uv run python main.py \
+	--operation protect \
+	--pdffile "doc.pdf" \
+	--protectmode permissions \
+	--outfile "doc-protected.pdf"
+```
+
+### Protect (encrypt mode, open password required)
+
+```bash
+uv run python main.py \
+	--operation protect \
+	--pdffile "doc.pdf" \
+	--protectmode encrypt \
+	--password "MyOpenPassword" \
+	--outfile "doc-encrypted.pdf"
+```
+
+### Unprotect
+
+```bash
+uv run python main.py \
+	--operation unprotect \
+	--pdffile "doc-encrypted.pdf" \
+	--password "MyOpenPassword" \
+	--outfile "doc-unprotected.pdf"
+```
 
 ### Coordinate system
 
@@ -94,6 +278,8 @@ uv run python main.py \
 - if neither is set: use the image's original size
 
 ## Insert Modes
+
+`--insertmode` currently applies to the `stamp` operation.
 
 ### `normal`
 
