@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
+import os
 import subprocess
 import sys
 import uuid
@@ -13,7 +15,16 @@ PROJECT_ROOT = Path(__file__).parent
 CLI_MAIN = PROJECT_ROOT / "main.py"
 OUTPUT_DIR = PROJECT_ROOT / "output-pdf"
 
-mcp = FastMCP("pdfedit")
+HTTP_HOST = os.getenv("PDFEDIT_MCP_HOST", "127.0.0.1")
+HTTP_PORT = int(os.getenv("PDFEDIT_MCP_PORT", "3000"))
+HTTP_PATH = os.getenv("PDFEDIT_MCP_HTTP_PATH", "/mcp")
+
+mcp = FastMCP(
+    "pdfedit",
+    host=HTTP_HOST,
+    port=HTTP_PORT,
+    streamable_http_path=HTTP_PATH,
+)
 
 
 def _abs_output_path(outfile: str) -> Path:
@@ -248,4 +259,18 @@ async def unprotect(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    parser = argparse.ArgumentParser(description="Run PDFEdit MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+        help="MCP transport mode (default: stdio)",
+    )
+    parser.add_argument(
+        "--mount-path",
+        default=None,
+        help="Optional mount path when running HTTP transports",
+    )
+
+    args = parser.parse_args()
+    mcp.run(transport=args.transport, mount_path=args.mount_path)

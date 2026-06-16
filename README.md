@@ -171,15 +171,31 @@ PDFEdit includes a local MCP server that exposes each supported operation as a t
 
 ### Transport and runtime
 
-- Transport: stdio (local process)
+- Transports: `stdio` (local process) and `streamable-http` (URL endpoint)
 - Server entrypoint: `mcp_server.py`
 - Tool contract: `docs/mcp-contract.md`
 
-Start the server directly:
+Start in stdio mode (default):
 
 ```bash
 uv run python mcp_server.py
 ```
+
+Start in HTTP mode (for URL-based MCP clients):
+
+```bash
+uv run python mcp_server.py --transport streamable-http
+```
+
+Default HTTP endpoint URL:
+
+`http://127.0.0.1:3000/mcp`
+
+Optional env overrides for HTTP mode:
+
+- `PDFEDIT_MCP_HOST` (default: `127.0.0.1`)
+- `PDFEDIT_MCP_PORT` (default: `3000`)
+- `PDFEDIT_MCP_HTTP_PATH` (default: `/mcp`)
 
 ### Client configuration model
 
